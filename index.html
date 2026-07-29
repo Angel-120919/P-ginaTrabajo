@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control Anual de Horas e Ingresos</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="app-container">
+    <header class="header">
+      <div class="control-ano">
+        <button id="btn-prev" class="btn">&laquo; Anterior</button>
+        <h1 id="titulo-ano">2026</h1>
+        <button id="btn-next" class="btn">Siguiente &raquo;</button>
+      </div>
+      
+      <div class="resumen-global">
+        <div class="resumen-card">
+          <span>Total Horas:</span>
+          <strong id="total-horas-ano">0 hrs</strong>
+        </div>
+        <div class="resumen-card dinero">
+          <span>Total Ganado:</span>
+          <strong id="total-dinero-ano">0,00 €</strong>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid-anual" id="grid-anual"></div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
