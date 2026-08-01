@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const TARIFA_HORA = 21.60; // 21,60 € la hora
+  const TARIFA_HORA = 21.60;
 
   const gridAnual = document.getElementById('grid-anual');
   const tituloAno = document.getElementById('titulo-ano');
@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const totalDineroAnoEl = document.getElementById('total-dinero-ano');
   const btnPrev = document.getElementById('btn-prev');
   const btnNext = document.getElementById('btn-next');
+  const btnExportar = document.getElementById('btn-exportar');
+  const inputImportar = document.getElementById('input-importar');
 
   let anoActual = new Date().getFullYear();
 
@@ -23,7 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem(`horas_${ano}`, JSON.stringify(datos));
   }
 
-  // Función para formatear cantidades monetarias en formato de España (ej: 1.250,40 €)
   function formatearEuros(cantidad) {
     return cantidad.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
   }
@@ -37,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const totalDinero = totalHoras * TARIFA_HORA;
-    totalHorasAnoEl.innerText = `${totalHoras} hrs`;
+    totalHorasAnoEl.innerText = `${totalHoras.toFixed(2).replace('.', ',')} hrs`;
     totalDineroAnoEl.innerText = formatearEuros(totalDinero);
   }
 
@@ -46,17 +47,14 @@ document.addEventListener('DOMContentLoaded', () => {
     gridAnual.innerHTML = '';
     const registrosAno = obtenerRegistrosAno(anoActual);
 
-    // Iterar por los 12 meses
     for (let mes = 0; mes < 12; mes++) {
       const mesCard = document.createElement('div');
       mesCard.classList.add('mes-card');
 
-      // Horas e ingresos del mes actual
       const registrosMes = registrosAno[mes] || {};
       const totalHorasMes = Object.values(registrosMes).reduce((acc, curr) => acc + Number(curr), 0);
       const totalDineroMes = totalHorasMes * TARIFA_HORA;
 
-      // Cabecera del mes
       const mesHeader = document.createElement('div');
       mesHeader.classList.add('mes-header');
 
@@ -69,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const badgeHoras = document.createElement('span');
       badgeHoras.classList.add('mes-total-badge');
-      badgeHoras.innerText = `${totalHorasMes} hrs`;
+      badgeHoras.innerText = `${totalHorasMes.toFixed(1).replace('.', ',')} hrs`;
 
       const badgeDinero = document.createElement('span');
       badgeDinero.classList.add('mes-total-badge', 'dinero-badge');
@@ -82,7 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
       mesHeader.appendChild(badgesContainer);
       mesCard.appendChild(mesHeader);
 
-      // Cabecera de días de la semana
       const diasSemana = document.createElement('div');
       diasSemana.classList.add('dias-semana');
       ['L', 'M', 'X', 'J', 'V', 'S', 'D'].forEach(dia => {
@@ -92,7 +89,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       mesCard.appendChild(diasSemana);
 
-      // Grid de días
       const mesGrid = document.createElement('div');
       mesGrid.classList.add('mes-grid');
 
@@ -100,14 +96,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const totalDias = new Date(anoActual, mes + 1, 0).getDate();
       const inicioOffset = (primerDia === 0 ? 6 : primerDia - 1);
 
-      // Celdas vacías al inicio del mes
       for (let i = 0; i < inicioOffset; i++) {
         const vacio = document.createElement('div');
         vacio.classList.add('dia-box', 'dia-vacio');
         mesGrid.appendChild(vacio);
       }
 
-      // Días del mes
       for (let dia = 1; dia <= totalDias; dia++) {
         const diaBox = document.createElement('div');
         diaBox.classList.add('dia-box');
@@ -121,26 +115,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (horasGuardadas !== undefined) {
           const horasSpan = document.createElement('span');
           horasSpan.classList.add('dia-horas');
-          horasSpan.innerText = `${horasGuardadas}h`;
+          // Formatear coma para la vista
+          horasSpan.innerText = `${String(horasGuardadas).replace('.', ',')}h`;
           diaBox.appendChild(horasSpan);
         }
 
-        // Evento al hacer clic en un día
         diaBox.addEventListener('click', () => {
-          const horasIngresadas = prompt(
-            `${dia} de ${nombresMeses[mes]} de ${anoActual}\nHoras trabajadas:`, 
-            horasGuardadas || ''
+          let entrada = prompt(
+            `${dia} de ${nombresMeses[mes]} de ${anoActual}\nHoras trabajadas (Ej: 2.5 o 2,5):`, 
+            horasGuardadas !== undefined ? String(horasGuardadas).replace('.', ',') : ''
           );
 
-          if (horasIngresadas !== null) {
-            const numHoras = parseFloat(horasIngresadas);
+          if (entrada !== null) {
+            // Reemplazar coma por punto para poder convertir a número float
+            entrada = entrada.replace(',', '.').trim();
 
-            if (!registrosAno[mes]) registrosAno[mes] = {};
-
-            if (!isNaN(numHoras) && numHoras >= 0) {
-              registrosAno[mes][dia] = numHoras;
-            } else if (horasIngresadas.trim() === '') {
+            if (entrada === '') {
               delete registrosAno[mes][dia];
+            } else {
+              const numHoras = parseFloat(entrada);
+              if (!isNaN(numHoras) && numHoras >= 0) {
+                if (!registrosAno[mes]) registrosAno[mes] = {};
+                registrosAno[mes][dia] = numHoras;
+              } else {
+                alert('Por favor introduce un número válido.');
+                return;
+              }
             }
 
             guardarRegistrosAno(anoActual, registrosAno);
@@ -158,6 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
     calcularTotalAno(registrosAno);
   }
 
+  // --- NAVEGACIÓN DE AÑOS ---
   btnPrev.addEventListener('click', () => {
     anoActual--;
     renderizarAno();
@@ -166,6 +167,46 @@ document.addEventListener('DOMContentLoaded', () => {
   btnNext.addEventListener('click', () => {
     anoActual++;
     renderizarAno();
+  });
+
+  // --- EXPORTAR BASE DE DATOS (JSON) ---
+  btnExportar.addEventListener('click', () => {
+    const todoElAlmacen = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const clave = localStorage.key(i);
+      if (clave.startsWith('horas_')) {
+        todoElAlmacen[clave] = JSON.parse(localStorage.getItem(clave));
+      }
+    }
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(todoElAlmacen, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `backup_horas_${anoActual}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  });
+
+  // --- IMPORTAR BASE DE DATOS (JSON) ---
+  inputImportar.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const datosCargados = JSON.parse(event.target.result);
+        Object.keys(datosCargados).forEach(clave => {
+          localStorage.setItem(clave, JSON.stringify(datosCargados[clave]));
+        });
+        alert('¡Base de datos cargada e importada correctamente!');
+        renderizarAno();
+      } catch (err) {
+        alert('Error al leer el archivo JSON.');
+      }
+    };
+    reader.readAsText(file);
   });
 
   renderizarAno();

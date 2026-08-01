@@ -24,7 +24,7 @@ body {
   justify-content: space-between;
   align-items: center;
   box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-  margin-bottom: 30px;
+  margin-bottom: 20px;
   flex-wrap: wrap;
   gap: 15px;
 }
@@ -51,10 +51,35 @@ body {
   cursor: pointer;
   font-weight: 600;
   transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn:hover {
   background: #4f46e5;
+}
+
+.btn-secundario {
+  background: #ffffff;
+  color: #4b5563;
+  border: 1px solid #d1d5db;
+}
+
+.btn-secundario:hover {
+  background: #f9fafb;
+  color: #111827;
+}
+
+.btn-file {
+  cursor: pointer;
+}
+
+.toolbar-datos {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-bottom: 20px;
 }
 
 .resumen-global {
@@ -96,7 +121,6 @@ body {
   box-shadow: 0 4px 12px rgba(0,0,0,0.03);
 }
 
-/* Cabecera del mes */
 .mes-header {
   display: flex;
   justify-content: space-between;
