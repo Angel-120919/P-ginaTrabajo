@@ -1,14 +1,22 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const TARIFA_HORA = 21.60;
+  // =========================================================================
+  // 1. CONFIGURACIÓN
+  // =========================================================================
+  const TARIFA_HORA = 21.60; // 21,60 € por hora
 
+  // CONFIGURACIÓN DE TU REPOSITORIO DE GITHUB
+  // IMPORTANTE: Reemplaza estos datos por los tuyos reales.
+  const GITHUB_USUARIO = 'TU_USUARIO_GITHUB';
+  const GITHUB_REPO = 'NOMBRE_DE_TU_REPOSITORIO';
+  const GITHUB_TOKEN = 'ghp_TU_TOKEN_PERSONAL_AQUI'; // Token generado en GitHub
+
+  // Elementos del DOM
   const gridAnual = document.getElementById('grid-anual');
   const tituloAno = document.getElementById('titulo-ano');
   const totalHorasAnoEl = document.getElementById('total-horas-ano');
   const totalDineroAnoEl = document.getElementById('total-dinero-ano');
   const btnPrev = document.getElementById('btn-prev');
   const btnNext = document.getElementById('btn-next');
-  const btnExportar = document.getElementById('btn-exportar');
-  const inputImportar = document.getElementById('input-importar');
 
   let anoActual = new Date().getFullYear();
 
@@ -17,14 +25,74 @@ document.addEventListener('DOMContentLoaded', () => {
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
   ];
 
+  // =========================================================================
+  // 2. FUNCIONES DE ALMACENAMIENTO Y API DE GITHUB
+  // =========================================================================
   function obtenerRegistrosAno(ano) {
     return JSON.parse(localStorage.getItem(`horas_${ano}`)) || {};
   }
 
-  function guardarRegistrosAno(ano, datos) {
+  function guardarRegistrosAnoLocal(ano, datos) {
     localStorage.setItem(`horas_${ano}`, JSON.stringify(datos));
   }
 
+  // Función para subir directamente el archivo JSON del mes a GitHub
+  async function subirMesAGitHub(ano, mes, datosMes) {
+    // Si no has configurado tu token, evitamos hacer la petición
+    if (GITHUB_TOKEN === 'ghp_TU_TOKEN_PERSONAL_AQUI' || !GITHUB_TOKEN) {
+      console.warn('Sincronización con GitHub omitida: Token no configurado.');
+      return;
+    }
+
+    const nombreMes = nombresMeses[mes];
+    const numMesFormateado = String(mes + 1).padStart(2, '0');
+    const rutaArchivo = `registros/${ano}/${numMesFormateado}_${nombreMes}.json`;
+    const url = `https://api.github.com/repos/${GITHUB_USUARIO}/${GITHUB_REPO}/contents/${rutaArchivo}`;
+
+    // Convertir datos a cadena JSON y luego a Base64 (requerido por GitHub API)
+    const contenidoJSON = JSON.stringify(datosMes, null, 2);
+    const contenidoBase64 = btoa(unescape(encodeURIComponent(contenidoJSON)));
+
+    try {
+      // 1. Consultar si el archivo ya existe para obtener su 'sha'
+      let sha = null;
+      const resConsulta = await fetch(url, {
+        headers: { Authorization: `token ${GITHUB_TOKEN}` }
+      });
+
+      if (resConsulta.status === 200) {
+        const archivoExiste = await resConsulta.json();
+        sha = archivoExiste.sha;
+      }
+
+      // 2. Guardar o actualizar el archivo en la nube
+      const resSubida = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          Authorization: `token ${GITHUB_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: `Actualización de horas: ${nombreMes} ${ano}`,
+          content: contenidoBase64,
+          sha: sha || undefined
+        })
+      });
+
+      if (resSubida.ok) {
+        console.log(`✅ ¡Datos de ${nombreMes} ${ano} guardados con éxito en GitHub!`);
+      } else {
+        const errorData = await resSubida.json();
+        console.error('❌ Error al subir a GitHub:', errorData);
+      }
+    } catch (error) {
+      console.error('❌ Error de conexión al intentar sincronizar con GitHub:', error);
+    }
+  }
+
+  // =========================================================================
+  // 3. FUNCIONES DE FORMATO Y CÁLCULOS
+  // =========================================================================
   function formatearEuros(cantidad) {
     return cantidad.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
   }
@@ -42,11 +110,15 @@ document.addEventListener('DOMContentLoaded', () => {
     totalDineroAnoEl.innerText = formatearEuros(totalDinero);
   }
 
+  // =========================================================================
+  // 4. RENDERIZADO DEL CALENDARIO
+  // =========================================================================
   function renderizarAno() {
     tituloAno.innerText = anoActual;
     gridAnual.innerHTML = '';
     const registrosAno = obtenerRegistrosAno(anoActual);
 
+    // Bucle para construir los 12 meses
     for (let mes = 0; mes < 12; mes++) {
       const mesCard = document.createElement('div');
       mesCard.classList.add('mes-card');
@@ -55,6 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const totalHorasMes = Object.values(registrosMes).reduce((acc, curr) => acc + Number(curr), 0);
       const totalDineroMes = totalHorasMes * TARIFA_HORA;
 
+      // Encabezado del mes
       const mesHeader = document.createElement('div');
       mesHeader.classList.add('mes-header');
 
@@ -80,6 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
       mesHeader.appendChild(badgesContainer);
       mesCard.appendChild(mesHeader);
 
+      // Cabecera de días de la semana
       const diasSemana = document.createElement('div');
       diasSemana.classList.add('dias-semana');
       ['L', 'M', 'X', 'J', 'V', 'S', 'D'].forEach(dia => {
@@ -89,6 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       mesCard.appendChild(diasSemana);
 
+      // Celdas del calendario
       const mesGrid = document.createElement('div');
       mesGrid.classList.add('mes-grid');
 
@@ -96,12 +171,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const totalDias = new Date(anoActual, mes + 1, 0).getDate();
       const inicioOffset = (primerDia === 0 ? 6 : primerDia - 1);
 
+      // Espacios vacíos de inicio de mes
       for (let i = 0; i < inicioOffset; i++) {
         const vacio = document.createElement('div');
         vacio.classList.add('dia-box', 'dia-vacio');
         mesGrid.appendChild(vacio);
       }
 
+      // Días del mes
       for (let dia = 1; dia <= totalDias; dia++) {
         const diaBox = document.createElement('div');
         diaBox.classList.add('dia-box');
@@ -115,11 +192,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (horasGuardadas !== undefined) {
           const horasSpan = document.createElement('span');
           horasSpan.classList.add('dia-horas');
-          // Formatear coma para la vista
           horasSpan.innerText = `${String(horasGuardadas).replace('.', ',')}h`;
           diaBox.appendChild(horasSpan);
         }
 
+        // Clic para agregar/modificar horas
         diaBox.addEventListener('click', () => {
           let entrada = prompt(
             `${dia} de ${nombresMeses[mes]} de ${anoActual}\nHoras trabajadas (Ej: 2.5 o 2,5):`, 
@@ -127,24 +204,31 @@ document.addEventListener('DOMContentLoaded', () => {
           );
 
           if (entrada !== null) {
-            // Reemplazar coma por punto para poder convertir a número float
+            // Reemplazar coma por punto para trabajar decimales en JS
             entrada = entrada.replace(',', '.').trim();
+
+            if (!registrosAno[mes]) registrosAno[mes] = {};
 
             if (entrada === '') {
               delete registrosAno[mes][dia];
             } else {
               const numHoras = parseFloat(entrada);
               if (!isNaN(numHoras) && numHoras >= 0) {
-                if (!registrosAno[mes]) registrosAno[mes] = {};
                 registrosAno[mes][dia] = numHoras;
               } else {
-                alert('Por favor introduce un número válido.');
+                alert('Por favor, introduce un número de horas válido.');
                 return;
               }
             }
 
-            guardarRegistrosAno(anoActual, registrosAno);
+            // 1. Guardar copia local en el navegador
+            guardarRegistrosAnoLocal(anoActual, registrosAno);
+
+            // 2. Renderizar interfaz inmediatamente
             renderizarAno();
+
+            // 3. Subir automáticamente el archivo del mes a GitHub
+            subirMesAGitHub(anoActual, mes, registrosAno[mes]);
           }
         });
 
@@ -158,7 +242,9 @@ document.addEventListener('DOMContentLoaded', () => {
     calcularTotalAno(registrosAno);
   }
 
-  // --- NAVEGACIÓN DE AÑOS ---
+  // =========================================================================
+  // 5. NAVEGACIÓN Y EVENTOS
+  // =========================================================================
   btnPrev.addEventListener('click', () => {
     anoActual--;
     renderizarAno();
@@ -169,45 +255,6 @@ document.addEventListener('DOMContentLoaded', () => {
     renderizarAno();
   });
 
-  // --- EXPORTAR BASE DE DATOS (JSON) ---
-  btnExportar.addEventListener('click', () => {
-    const todoElAlmacen = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const clave = localStorage.key(i);
-      if (clave.startsWith('horas_')) {
-        todoElAlmacen[clave] = JSON.parse(localStorage.getItem(clave));
-      }
-    }
-
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(todoElAlmacen, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `backup_horas_${anoActual}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-  });
-
-  // --- IMPORTAR BASE DE DATOS (JSON) ---
-  inputImportar.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const datosCargados = JSON.parse(event.target.result);
-        Object.keys(datosCargados).forEach(clave => {
-          localStorage.setItem(clave, JSON.stringify(datosCargados[clave]));
-        });
-        alert('¡Base de datos cargada e importada correctamente!');
-        renderizarAno();
-      } catch (err) {
-        alert('Error al leer el archivo JSON.');
-      }
-    };
-    reader.readAsText(file);
-  });
-
+  // Inicializar al cargar la página
   renderizarAno();
 });
